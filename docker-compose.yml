@@ -1,0 +1,117 @@
+version: "3.9"
+
+services:
+  # Example: Postgres + backup sidecar
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: example
+      POSTGRES_DB: app
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  postgres-backup:
+    build: .
+    depends_on:
+      - postgres
+    environment:
+      DB_TYPE: postgres
+      PGHOST: postgres
+      PGUSER: postgres
+      PGPASSWORD: example
+      PGDATABASE: app
+      RESTIC_REPOSITORY: s3:s3.amazonaws.com/your-bucket/path
+      AWS_ACCESS_KEY_ID: your-access-key
+      AWS_SECRET_ACCESS_KEY: your-secret-key
+      AWS_DEFAULT_REGION: eu-west-1
+      RESTIC_PASSWORD: supersecret-password
+      RESTIC_TAGS: app,env=dev
+      # Optional webhook notifications
+      #WEBHOOK_URL: https://example.com/hooks/backup
+      #WEBHOOK_AUTH_HEADER: Authorization: Bearer your-token
+      #WEBHOOK_TIMEOUT_SECONDS: 10
+      KEEP_DAILIES: 7
+      KEEP_WEEKLIES: 4
+      KEEP_MONTHLIES: 12
+      KEEP_YEARLIES: 3
+      # Prefer cron for explicit scheduling (02:00 daily)
+      CRON_SCHEDULE: "0 2 * * *"
+      TZ: Europe/Amsterdam
+    volumes:
+      - /backup
+
+  # Example: MySQL/MariaDB + backup sidecar
+  mariadb:
+    image: mariadb:11
+    environment:
+      MYSQL_ROOT_PASSWORD: example
+      MYSQL_DATABASE: app
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysqldata:/var/lib/mysql
+
+  mariadb-backup:
+    build: .
+    depends_on:
+      - mariadb
+    environment:
+      DB_TYPE: mysql
+      MYSQL_HOST: mariadb
+      MYSQL_USER: root
+      MYSQL_PASSWORD: example
+      MYSQL_DATABASE: app
+      RESTIC_REPOSITORY: s3:s3.amazonaws.com/your-bucket/path
+      AWS_ACCESS_KEY_ID: your-access-key
+      AWS_SECRET_ACCESS_KEY: your-secret-key
+      AWS_DEFAULT_REGION: eu-west-1
+      RESTIC_PASSWORD: supersecret-password
+      RESTIC_TAGS: app,env=dev
+      # Optional webhook notifications
+      #WEBHOOK_URL: https://example.com/hooks/backup
+      #WEBHOOK_AUTH_HEADER: Authorization: Bearer your-token
+      #WEBHOOK_TIMEOUT_SECONDS: 10
+      CRON_SCHEDULE: "0 3 * * *" # 03:00 daily
+      TZ: Europe/Amsterdam
+    volumes:
+      - /backup
+
+  # Example: MongoDB + backup sidecar
+  mongo:
+    image: mongo:7
+    command: ["--replSet", "rs0"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+
+  mongo-backup:
+    build: .
+    depends_on:
+      - mongo
+    environment:
+      DB_TYPE: mongo
+      MONGO_HOST: mongo
+      RESTIC_REPOSITORY: s3:s3.amazonaws.com/your-bucket/path
+      AWS_ACCESS_KEY_ID: your-access-key
+      AWS_SECRET_ACCESS_KEY: your-secret-key
+      AWS_DEFAULT_REGION: eu-west-1
+      RESTIC_PASSWORD: supersecret-password
+      RESTIC_TAGS: app,env=dev
+      # Optional webhook notifications
+      #WEBHOOK_URL: https://example.com/hooks/backup
+      #WEBHOOK_AUTH_HEADER: Authorization: Bearer your-token
+      #WEBHOOK_TIMEOUT_SECONDS: 10
+      CRON_SCHEDULE: "30 2 * * *" # 02:30 daily
+      TZ: Europe/Amsterdam
+    volumes:
+      - /backup
+
+volumes:
+  pgdata:
+  mysqldata:
+  mongodata:
+
+
