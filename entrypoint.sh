@@ -37,6 +37,10 @@ XDG_CACHE_HOME="${RESTIC_CACHE_DIR}"
 TMPDIR="${BACKUP_DIR}/.tmp"
 export HOME RESTIC_CACHE_DIR XDG_CACHE_HOME TMPDIR
 mkdir -p "${HOME}" "${RESTIC_CACHE_DIR}" "${TMPDIR}" >/dev/null 2>&1 || true
+# Ensure backups user can write to these directories when running as root
+if [[ "$(id -u)" -eq 0 ]]; then
+  chown -R 1000:1000 "${HOME}" "${RESTIC_CACHE_DIR}" "${TMPDIR}" >/dev/null 2>&1 || true
+fi
 
 # Configure timezone inside container if available (Alpine uses /etc/timezone and /etc/localtime)
 if [[ -n "${TZ}" ]]; then
@@ -411,7 +415,7 @@ start_loop() {
     backups_uid=1000; backups_gid=1000
     
     # Ensure proper cron directories exist
-    mkdir -p "${spool_dir}" "${BACKUP_WORK_DIR}" "${RESTIC_CACHE_DIR}" || true
+    mkdir -p "${spool_dir}" "${BACKUP_WORK_DIR}" "${RESTIC_CACHE_DIR}" "${BACKUP_DIR}/.tmp" || true
     chown root:root "${spool_dir}" || true
     chmod 755 "${spool_dir}" || true
     
@@ -423,7 +427,7 @@ start_loop() {
     chmod 644 "${spool_dir}/root" || true
     
     # Ensure backups can write logs/workspace/cache
-    chown -R ${backups_uid}:${backups_gid} "${BACKUP_WORK_DIR}" "${RESTIC_CACHE_DIR}" || true
+    chown -R ${backups_uid}:${backups_gid} "${BACKUP_WORK_DIR}" "${RESTIC_CACHE_DIR}" "${BACKUP_DIR}/.tmp" || true
     touch "${BACKUP_DIR}/cron.log" && chown ${backups_uid}:${backups_gid} "${BACKUP_DIR}/cron.log" || true
     
     log "Installed crontab for root with schedule: ${CRON_SCHEDULE}"
@@ -468,7 +472,9 @@ case "$cmd" in
     # Drop privileges to backups user and run backup
     if [[ "$(id -u)" -eq 0 ]]; then
       # Ensure proper ownership before dropping privileges
-      chown -R 1000:1000 "${BACKUP_WORK_DIR}" "${RESTIC_CACHE_DIR}" "${BACKUP_DIR}/cron.log" 2>/dev/null || true
+      # Create necessary directories for restic
+      mkdir -p "${BACKUP_DIR}/.tmp" "${BACKUP_WORK_DIR}" "${RESTIC_CACHE_DIR}" 2>/dev/null || true
+      chown -R 1000:1000 "${BACKUP_WORK_DIR}" "${RESTIC_CACHE_DIR}" "${BACKUP_DIR}" 2>/dev/null || true
       # Use su to switch user (more compatible than su-exec in cron context)
       exec su -s /bin/sh backups -c '/usr/local/bin/entrypoint.sh run-once'
     else
