@@ -170,15 +170,15 @@ backup_mongo() {
 
   # For MongoDB, create a single compressed archive to improve incremental backups
   # Many small BSON files with metadata cause false "changes" due to internal timestamps
-  log "Creating compressed archive of MongoDB dump for better incremental backups"
+  log "Creating zstd compressed archive of MongoDB dump for better incremental backups"
   cd "$workdir" || exit 1
   
   # Create a deterministic tar archive using BusyBox tar
   # First, create file list in sorted order for consistency
   find dump -type f | sort > file_list.txt
   
-  # Create tar with consistent options (BusyBox compatible)
-  tar -czf mongodump.tar.gz --numeric-owner -T file_list.txt
+  # Create tar with zstd compression (much faster and better compression than gzip)
+  tar -c --numeric-owner -T file_list.txt | zstd -3 > mongodump.tar.zst
   
   # Clean up
   rm -f file_list.txt
@@ -192,7 +192,7 @@ backup_mongo() {
   else
     host_part="$no_proto"
   fi
-  BACKUP_DATA_PATH="${workdir}/mongodump.tar.gz"
+  BACKUP_DATA_PATH="${workdir}/mongodump.tar.zst"
   BACKUP_HOST_HINT="mongodb://${host_part}"
   BACKUP_DBTYPE="mongodb"
   DUMP_PATH="$workdir"

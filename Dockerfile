@@ -17,7 +17,8 @@ RUN apk add --no-cache \
     curl \
     jq \
     dcron \
-    wget
+    wget \
+    zstd
 
 # Install latest Restic (0.18.x) from official releases
 RUN ARCH=$(uname -m) && \

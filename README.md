@@ -7,13 +7,19 @@ Sidecar image for encrypted, incremental database backups with restic to S3. Sup
 - Supports Postgres, MySQL/MariaDB, MongoDB
 - S3-compatible storage (AWS S3, MinIO, Wasabi, etc.)
 - Retention: daily / weekly / monthly / yearly
+- zstd compression for faster and more efficient MongoDB backups
 - Simple sidecar design
 
 ## How it works
 1. The sidecar produces a database dump into a temporary workspace under `/backup/work`.
-2. `restic backup` uploads incrementally to the configured S3 repository.
-3. `restic forget` enforces the retention policy; with `--prune` it reclaims space.
-4. On the first run, the script checks if the restic repository is initialized. If not, it automatically runs `restic init` before the first backup.
+2. For MongoDB: Creates a deterministic zstd-compressed archive for optimal incremental backups.
+3. `restic backup` uploads incrementally to the configured S3 repository.
+4. `restic forget` enforces the retention policy; with `--prune` it reclaims space.
+5. On the first run, the script checks if the restic repository is initialized. If not, it automatically runs `restic init` before the first backup.
+
+### Compression
+- **MongoDB**: Uses zstd compression (level 3) for superior speed and compression ratio compared to gzip
+- **PostgreSQL/MySQL**: Raw SQL dumps are handled directly by restic's built-in compression
 
 ## Environment variables (general)
 - `DB_TYPE` (required): `postgres` | `mysql` | `mariadb` | `mongo`
